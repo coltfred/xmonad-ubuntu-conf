@@ -33,18 +33,19 @@ import XMonad.Hooks.UrgencyHook
 import qualified XMonad.StackSet as W
 import qualified Data.Map as M
 import Data.Ratio ((%))
+import XMonad.Hooks.ICCCMFocus
 
 {-
   Xmonad configuration variables. These settings control some of the
   simpler parts of xmonad's behavior and are straightforward to tweak.
 -}
 
-myModMask            = mod4Mask       -- changes the mod key to "super"
+myModMask            = mod1Mask       -- changes the mod key to "super"
 myFocusedBorderColor = "#ff0000"      -- color of focused border
 myNormalBorderColor  = "#cccccc"      -- color of inactive border
-myBorderWidth        = 1              -- width of border around windows
+myBorderWidth        = 2              -- width of border around windows
 myTerminal           = "terminator"   -- which terminal software to use
-myIMRosterTitle      = "Contact List" -- title of roster on IM workspace
+myIMRosterTitle      = "Buddy List" -- title of roster on IM workspace
 
 
 {-
@@ -86,13 +87,11 @@ myUrgentWSRight = "}"
 
 myWorkspaces =
   [
-    "7:Chat",  "8:Dbg", "9:Pix",
-    "4:Docs",  "5:Dev", "6:Web",
-    "1:Term",  "2:Hub", "3:Mail",
-    "0:VM",    "Extr1", "Extr2"
+    "1:Chat",  "2:Dev", "3:Web",
+    "4:RDesktop",  "5:Extra1", "6:Extra2"
   ]
 
-startupWorkspace = "5:Dev"  -- which workspace do you want to be on after launch?
+startupWorkspace = "2:Dev"  -- which workspace do you want to be on after launch?
 
 {-
   Layout configuration. In this section we identify which xmonad
@@ -127,23 +126,23 @@ defaultLayouts = smartBorders(avoidStruts(
 
   -- Full layout makes every window full screen. When you toggle the
   -- active window, it will bring the active window to the front.
-  ||| noBorders Full
+  ||| noBorders Full))
 
   -- Grid layout tries to equally distribute windows in the available
   -- space, increasing the number of columns and rows as necessary.
   -- Master window is at top left.
-  ||| Grid
+  -- ||| Grid
 
   -- ThreeColMid layout puts the large master window in the center
   -- of the screen. As configured below, by default it takes of 3/4 of
   -- the available space. Remaining windows tile to both the left and
   -- right of the master window. You can resize using "super-h" and
   -- "super-l".
-  ||| ThreeColMid 1 (3/100) (3/4)
+  -- ||| ThreeColMid 1 (3/100) (3/4)
 
   -- Circle layout places the master window in the center of the screen.
   -- Remaining windows appear in a circle around it
-  ||| Circle))
+  -- ||| Circle
 
 
 -- Here we define some layouts which will be assigned to specific
@@ -163,13 +162,12 @@ chatLayout = avoidStruts(withIM (1%7) (Title myIMRosterTitle) Grid)
 -- master area, and then use this ThreeColMid layout to make the panels
 -- tile to the left and right of the image. If you use GIMP 2.8, you
 -- can use single-window mode and avoid this issue.
-gimpLayout = smartBorders(avoidStruts(ThreeColMid 1 (3/100) (3/4)))
+--gimpLayout = smartBorders(avoidStruts(ThreeColMid 1 (3/100) (3/4)))
 
 -- Here we combine our default layouts with our specific, workspace-locked
 -- layouts.
 myLayouts =
-  onWorkspace "7:Chat" chatLayout
-  $ onWorkspace "9:Pix" gimpLayout
+  onWorkspace "1:Chat" chatLayout
   $ defaultLayouts
 
 
@@ -204,6 +202,8 @@ myKeyBindings =
     , ((myModMask, xK_z), sendMessage MirrorExpand)
     , ((myModMask, xK_p), spawn "synapse")
     , ((myModMask, xK_u), focusUrgent)
+    , ((myModMask, xK_F11), spawn "changeMobile.sh")
+    , ((myModMask, xK_F12), spawn "changeWork.sh")
     , ((0, 0x1008FF12), spawn "amixer -q set Master toggle")
     , ((0, 0x1008FF11), spawn "amixer -q set Master 10%-")
     , ((0, 0x1008FF13), spawn "amixer -q set Master 10%+")
@@ -257,14 +257,12 @@ myManagementHooks :: [ManageHook]
 myManagementHooks = [
   resource =? "synapse" --> doIgnore
   , resource =? "stalonetray" --> doIgnore
+  , resource =? "xfce4-notifyd" --> doIgnore
+  , resource =? "Oracle Beehive Conferencing" --> doFloat
+  , resource =? "Notifications - Oracle Beehive Conferencing" --> doFloat
   , className =? "rdesktop" --> doFloat
-  , (className =? "Komodo IDE") --> doF (W.shift "5:Dev")
-  , (className =? "Komodo IDE" <&&> resource =? "Komodo_find2") --> doFloat
-  , (className =? "Komodo IDE" <&&> resource =? "Komodo_gotofile") --> doFloat
-  , (className =? "Komodo IDE" <&&> resource =? "Toplevel") --> doFloat
-  , (className =? "Empathy") --> doF (W.shift "7:Chat")
-  , (className =? "Pidgin") --> doF (W.shift "7:Chat")
-  , (className =? "Gimp-2.8") --> doF (W.shift "9:Pix")
+  , (className =? "Empathy") --> doF (W.shift "1:Chat")
+  , (className =? "Pidgin") --> doF (W.shift "1:Chat")
   ]
 
 
@@ -315,7 +313,7 @@ myKeys = myKeyBindings ++
        | (i, k) <- zip myWorkspaces numKeys
        , (f, m) <- [(W.greedyView, 0), (W.shift, shiftMask)]
   ] ++
-  M.toList (planeKeys myModMask (Lines 4) Finite) ++
+  M.toList (planeKeys myModMask (Lines 2) Finite) ++
   [
     ((m .|. myModMask, key), screenWorkspace sc
       >>= flip whenJust (windows . f))
@@ -348,7 +346,9 @@ main = do
   , manageHook = manageHook defaultConfig
       <+> composeAll myManagementHooks
       <+> manageDocks
-  , logHook = dynamicLogWithPP $ xmobarPP {
+  , logHook = do
+     takeTopFocus
+     dynamicLogWithPP $ xmobarPP {
       ppOutput = hPutStrLn xmproc
       , ppTitle = xmobarColor myTitleColor "" . shorten myTitleLength
       , ppCurrent = xmobarColor myCurrentWSColor ""
